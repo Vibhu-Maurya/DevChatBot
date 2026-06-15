@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: devchatbot-api
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "cd search_service && uvicorn main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: QDRANT_PATH
+        value: "/var/data/qdrant_db"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: DEFAULT_LLM_PROVIDER
+        value: "groq"
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+    disk:
+      name: qdrant-storage
+      mountPath: /var/data
+      sizeGB: 1

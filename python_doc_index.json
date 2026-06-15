@@ -1,0 +1,104 @@
+[
+  {
+    "section": "Beginner",
+    "title": "Beginner’s Guide",
+    "url": "https://wiki.python.org/moin/BeginnersGuide",
+    "description": ""
+  },
+  {
+    "section": "Beginner",
+    "title": "Python FAQs",
+    "url": "//docs.python.org/faq/",
+    "description": ""
+  },
+  {
+    "section": "Moderate",
+    "title": "Python Periodicals",
+    "url": "https://wiki.python.org/moin/PythonPeriodicals",
+    "description": ""
+  },
+  {
+    "section": "Moderate",
+    "title": "Python Books",
+    "url": "https://wiki.python.org/moin/PythonBooks",
+    "description": ""
+  },
+  {
+    "section": "Advanced",
+    "title": "Python Packaging User Guide",
+    "url": "http://packaging.python.org/",
+    "description": ""
+  },
+  {
+    "section": "Advanced",
+    "title": "In-development Docs",
+    "url": "//docs.python.org/dev/",
+    "description": ""
+  },
+  {
+    "section": "Advanced",
+    "title": "Guido’s Essays",
+    "url": "/doc/essays/",
+    "description": ""
+  },
+  {
+    "section": "General",
+    "title": "PEP Index",
+    "url": "https://peps.python.org/",
+    "description": ""
+  },
+  {
+    "section": "General",
+    "title": "Python Videos",
+    "url": "https://pyvideo.org/",
+    "description": ""
+  },
+  {
+    "section": "General",
+    "title": "Developer’s Guide",
+    "url": "https://devguide.python.org/",
+    "description": ""
+  },
+  {
+    "section": "Python 3.x Resources",
+    "title": "Browse Python 3.14.6 Documentation",
+    "url": "https://docs.python.org/3/",
+    "description": "(Module Index) What's new in Python 3.14 Tutorial Library Reference Language Reference Extending and Embedding Python/C API Using Python Python HOWTOs Glossary"
+  },
+  {
+    "section": "Python 3.x Resources",
+    "title": "Search the online docs",
+    "url": "https://docs.python.org/3/search.html",
+    "description": ""
+  },
+  {
+    "section": "Python 3.x Resources",
+    "title": "Download Current Documentation",
+    "url": "https://docs.python.org/3/download.html",
+    "description": "(multiple formats are available, including typeset versions for printing.)"
+  },
+  {
+    "section": "Porting from Python 2 to Python 3",
+    "title": "FAQ: Sunsetting Python 2",
+    "url": "https://www.python.org/doc/sunset-python-2/",
+    "description": ""
+  },
+  {
+    "section": "Porting from Python 2 to Python 3",
+    "title": "Final Python 2.7 Release Schedule",
+    "url": "https://peps.python.org/pep-0373/",
+    "description": ""
+  },
+  {
+    "section": "Porting from Python 2 to Python 3",
+    "title": "Python 3 Statement",
+    "url": "https://python3statement.github.io/",
+    "description": ""
+  },
+  {
+    "section": "Porting from Python 2 to Python 3",
+    "title": "Porting Python 2 Code to Python 3",
+    "url": "https://docs.python.org/3/howto/pyporting.html",
+    "description": "Determine what projects are blocking you from porting to Python 3 Python 2 Support and Migration"
+  }
+]

@@ -1,0 +1,26 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Qdrant Database
+qdrant_db/
+crawler/qdrant_db/
+
+# Logs
+*.log
+logs/
+metrics/
+
+# IDEs
+.vscode/
+.idea/

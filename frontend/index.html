@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DevChatBot — RAG Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<style>
+  :root{
+    --bg: #11151c;
+    --surface: #181e28;
+    --surface-2: #212938;
+    --raised: #283246;
+    --border: #2c3645;
+    --text: #e9edf3;
+    --text-muted: #8b96aa;
+    --text-faint: #5d6a80;
+    --amber: #e8a23a;
+    --amber-soft: rgba(232,162,58,0.14);
+    --teal: #5fb3ab;
+    --teal-soft: rgba(95,179,171,0.14);
+    --paper: #f3eee3;
+    --paper-text: #2a2620;
+    --radius: 10px;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  *{ box-sizing: border-box; }
+
+  html, body{
+    margin:0; padding:0; height:100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body{
+    display:flex;
+    justify-content:center;
+    min-height:100vh;
+  }
+
+  /* faint grid texture, evokes a vector field */
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 26px 26px;
+    pointer-events:none;
+    z-index:0;
+  }
+
+  .app{
+    width:100%;
+    max-width:880px;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    z-index:1;
+  }
+
+  /* ---------- HEADER ---------- */
+  header{
+    padding: 28px 24px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .eyebrow{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--teal);
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+  }
+
+  .eyebrow .dot{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--teal);
+    box-shadow: 0 0 0 0 rgba(95,179,171,0.6);
+    animation: pulse 2.4s infinite;
+  }
+
+  @keyframes pulse{
+    0%{ box-shadow: 0 0 0 0 rgba(95,179,171,0.45); }
+    70%{ box-shadow: 0 0 0 6px rgba(95,179,171,0); }
+    100%{ box-shadow: 0 0 0 0 rgba(95,179,171,0); }
+  }
+
+  h1{
+    font-family: var(--mono);
+    font-size: 26px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  h1 .blink{
+    display:inline-block;
+    width:10px; height:22px;
+    background: var(--amber);
+    margin-left:2px;
+    vertical-align:-3px;
+  }
+
+  /* ---------- ROBOT AVATAR ---------- */
+  .bot-avatar{
+    flex-shrink:0;
+    display:block;
+  }
+  .bot-avatar.lg{
+    width:44px; height:44px;
+    animation: bot-bob 3.2s ease-in-out infinite;
+  }
+  .bot-avatar.sm{
+    width:20px; height:20px;
+  }
+  .bot-avatar .eye{
+    transform-origin: center;
+    animation: bot-blink 4.6s ease-in-out infinite;
+  }
+  .bot-avatar .antenna{
+    transform-origin: center;
+    animation: bot-glow 2.4s ease-in-out infinite;
+  }
+  .bot-avatar .arm{
+    transform-origin: top center;
+    animation: bot-wave 2.6s ease-in-out infinite;
+  }
+  .bot-avatar .arm.right{ animation-delay: -1.3s; }
+
+  @keyframes bot-bob{
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-3px) rotate(-2deg); }
+  }
+  @keyframes bot-blink{
+    0%, 90%, 100% { transform: scaleY(1); }
+    95% { transform: scaleY(0.1); }
+  }
+  @keyframes bot-glow{
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px var(--amber)); }
+    50% { opacity: 0.45; filter: drop-shadow(0 0 0 transparent); }
+  }
+  @keyframes bot-wave{
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(14deg); }
+  }
+
+  /* ---------- WANDERING MASCOT ---------- */
+  .wander-bot{
+    position: fixed;
+    width: 90px;
+    height: 90px;
+    z-index: 80;
+    pointer-events: none;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.45));
+    transition: left 5.5s cubic-bezier(.45,.05,.55,.95),
+                top 5.5s cubic-bezier(.45,.05,.55,.95);
+    will-change: left, top;
+  }
+  .wander-bot svg{
+    width:100%; height:100%; display:block;
+    animation: bot-bob 1.4s ease-in-out infinite;
+  }
+  .wander-bot.flip svg{
+    transform: scaleX(-1);
+  }
+  .wander-bot.excited{
+    transition: left 0.9s cubic-bezier(.34,1.56,.64,1),
+                top 0.9s cubic-bezier(.34,1.56,.64,1);
+  }
+  .wander-bot.excited svg{
+    animation: bot-bob 0.35s ease-in-out infinite;
+  }
+  .wander-bot.excited .arm{
+    animation: bot-wave 0.45s ease-in-out infinite;
+  }
+
+
+  header p{
+    margin:0;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height:1.6;
+    max-width: 560px;
+  }
+
+  .meta-row{
+    display:flex;
+    gap:18px;
+    margin-top:14px;
+    flex-wrap:wrap;
+  }
+  .meta-item{
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .meta-item b{ color: var(--text-muted); font-weight:500; }
+
+  .settings-toggle{
+    background:none;
+    border:1px solid var(--border);
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size:11px;
+    padding:5px 10px;
+    border-radius: 6px;
+    cursor:pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .settings-toggle:hover{ border-color: var(--teal); color: var(--teal); }
+
+  .settings-panel{
+    margin-top:14px;
+    padding:12px 14px;
+    background: var(--surface-2);
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    display:none;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+  .settings-panel.open{ display:flex; }
+  .settings-panel label{
+    font-family: var(--mono);
+    font-size:11px;
+    color: var(--text-muted);
+    letter-spacing: .05em;
+  }
+  .settings-panel input{
+    flex:1;
+    min-width: 200px;
+    background: var(--bg);
+    border:1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size:12px;
+    padding:7px 10px;
+    border-radius:6px;
+  }
+  .settings-panel input:focus{ outline:1px solid var(--teal); border-color: var(--teal); }
+  .settings-panel button{
+    background: var(--amber);
+    color: #1a1408;
+    border:none;
+    font-family: var(--mono);
+    font-size:11px;
+    font-weight:600;
+    padding:7px 14px;
+    border-radius:6px;
+    cursor:pointer;
+    letter-spacing:.04em;
+  }
+
+  /* ---------- CHAT ---------- */
+  .chat{
+    flex:1;
+    overflow-y:auto;
+    padding: 22px 24px 12px;
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  .msg{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    max-width: 100%;
+    animation: rise .28s ease both;
+  }
+  @keyframes rise{
+    from{ opacity:0; transform: translateY(8px); }
+    to{ opacity:1; transform: translateY(0); }
+  }
+
+  .msg.user{ align-items:flex-end; }
+  .msg.bot{ align-items:flex-start; }
+
+  .who{
+    font-family: var(--mono);
+    font-size:10px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color: var(--text-faint);
+    padding: 0 4px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+
+  .bubble{
+    border-radius: var(--radius);
+    padding: 13px 16px;
+    font-size: 14.5px;
+    line-height: 1.65;
+    max-width: 88%;
+  }
+
+  .msg.user .bubble{
+    background: var(--paper);
+    color: var(--paper-text);
+    border-bottom-right-radius: 3px;
+    font-family: var(--sans);
+  }
+
+  .msg.bot .bubble{
+    background: var(--surface-2);
+    border:1px solid var(--border);
+    border-bottom-left-radius: 3px;
+    width:100%;
+  }
+
+  .bubble p{ margin: 0 0 10px; }
+  .bubble p:last-child{ margin-bottom:0; }
+  .bubble ul, .bubble ol{ margin: 0 0 10px; padding-left: 22px; }
+  .bubble li{ margin-bottom:4px; }
+  .bubble code{
+    font-family: var(--mono);
+    background: var(--bg);
+    border:1px solid var(--border);
+    padding: 1px 5px;
+    border-radius:4px;
+    font-size: 0.88em;
+    color: var(--amber);
+  }
+  .bubble pre{
+    background: var(--bg);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:12px 14px;
+    overflow-x:auto;
+    margin: 0 0 10px;
+  }
+  .bubble pre code{
+    background:none; border:none; padding:0; color: var(--text);
+  }
+  .bubble a{ color: var(--teal); text-decoration: none; border-bottom: 1px solid var(--teal-soft); }
+  .bubble a:hover{ border-bottom-color: var(--teal); }
+  .bubble strong{ color: var(--amber); font-weight:600; }
+  .bubble h1, .bubble h2, .bubble h3{
+    font-family: var(--mono);
+    font-size: 14px;
+    color: var(--text);
+    margin: 4px 0 8px;
+  }
+
+  /* ---------- RETRIEVAL RECEIPT (signature element) ---------- */
+  .receipt{
+    width:100%;
+    margin-top: 4px;
+  }
+  .receipt-label{
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 0 0 8px 4px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .receipt-label::after{
+    content:"";
+    flex:1;
+    height:1px;
+    background: var(--border);
+  }
+
+  .cards{
+    display:flex;
+    gap:10px;
+    overflow-x:auto;
+    padding-bottom:4px;
+  }
+  .cards::-webkit-scrollbar{ height:6px; }
+  .cards::-webkit-scrollbar-thumb{ background: var(--border); border-radius:3px; }
+
+  .card{
+    flex: 0 0 220px;
+    background: var(--surface);
+    border:1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 12px;
+    position:relative;
+    text-decoration:none;
+    color:inherit;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    transition: border-color .15s, transform .15s;
+  }
+  .card:hover{
+    border-color: var(--teal);
+    transform: translateY(-2px);
+  }
+  /* punch-hole index card detail */
+  .card::before{
+    content:"";
+    position:absolute;
+    top:11px; right:11px;
+    width:7px; height:7px;
+    border-radius:50%;
+    background: var(--bg);
+    border:1px solid var(--border);
+  }
+
+  .card-index{
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--amber);
+    letter-spacing:.08em;
+  }
+  .card-title{
+    font-size: 12.5px;
+    font-weight:600;
+    line-height:1.35;
+    color: var(--text);
+    padding-right: 14px;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .card-snippet{
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height:1.5;
+    display:-webkit-box;
+    -webkit-line-clamp:2;
+    -webkit-box-orient:vertical;
+    overflow:hidden;
+  }
+  .card-meter{
+    margin-top:2px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .meter-track{
+    flex:1;
+    height:4px;
+    background: var(--bg);
+    border-radius:2px;
+    overflow:hidden;
+  }
+  .meter-fill{
+    height:100%;
+    background: linear-gradient(90deg, var(--teal), var(--amber));
+    border-radius:2px;
+  }
+  .meter-score{
+    font-family: var(--mono);
+    font-size:10px;
+    color: var(--text-faint);
+    min-width: 32px;
+    text-align:right;
+  }
+
+  /* ---------- TYPING INDICATOR ---------- */
+  .typing{
+    display:flex;
+    gap:4px;
+    padding: 4px 0;
+  }
+  .typing span{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--text-faint);
+    animation: bob 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2){ animation-delay: .15s; }
+  .typing span:nth-child(3){ animation-delay: .3s; }
+  @keyframes bob{
+    0%, 80%, 100%{ transform: translateY(0); opacity:.4; }
+    40%{ transform: translateY(-4px); opacity:1; }
+  }
+
+  /* ---------- error / empty state ---------- */
+  .error-bubble{
+    border-color: rgba(232,93,58,0.4) !important;
+    background: rgba(232,93,58,0.07) !important;
+  }
+  .error-bubble .err-title{
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color: #e85d3a;
+    margin-bottom:6px;
+  }
+
+  /* ---------- WELCOME / SUGGESTIONS ---------- */
+  .welcome{
+    border:1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 18px 18px 14px;
+    color: var(--text-muted);
+    font-size:14px;
+    line-height:1.7;
+  }
+  .welcome b{ color: var(--text); }
+  .chips{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-top:12px;
+  }
+  .chip{
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 12px;
+    background: var(--surface-2);
+    border:1px solid var(--border);
+    border-radius: 999px;
+    cursor:pointer;
+    color: var(--text-muted);
+    transition: all .15s;
+  }
+  .chip:hover{
+    border-color: var(--amber);
+    color: var(--amber);
+  }
+
+  /* ---------- INPUT ---------- */
+  .composer{
+    border-top: 1px solid var(--border);
+    padding: 16px 24px 22px;
+    background: linear-gradient(to top, var(--bg) 60%, transparent);
+  }
+  .composer-inner{
+    display:flex;
+    gap:10px;
+    align-items:flex-end;
+    background: var(--surface-2);
+    border:1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 8px 8px 8px 16px;
+    transition: border-color .15s;
+  }
+  .composer-inner:focus-within{ border-color: var(--teal); }
+
+  .composer textarea{
+    flex:1;
+    background:none;
+    border:none;
+    outline:none;
+    resize:none;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14.5px;
+    line-height:1.5;
+    max-height: 140px;
+    padding: 8px 0;
+  }
+  .composer textarea::placeholder{ color: var(--text-faint); }
+
+  .send-btn{
+    background: var(--amber);
+    border:none;
+    color: #1a1408;
+    font-family: var(--mono);
+    font-weight:600;
+    font-size:12px;
+    letter-spacing:.05em;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor:pointer;
+    transition: filter .15s, opacity .15s;
+    flex-shrink:0;
+  }
+  .send-btn:hover{ filter: brightness(1.08); }
+  .send-btn:disabled{ opacity:.45; cursor:default; }
+
+  .composer-hint{
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+    margin-top:8px;
+    text-align:center;
+    letter-spacing:.05em;
+  }
+
+  @media (max-width: 560px){
+    header{ padding: 20px 16px 14px; }
+    .chat{ padding: 16px 16px 8px; }
+    .composer{ padding: 12px 16px 18px; }
+    .bubble{ max-width: 100%; }
+    .card{ flex: 0 0 180px; }
+    h1{ font-size: 22px; }
+  }
+
+
+</style>
+</head>
+<body>
+<div class="wander-bot" id="wanderBot" aria-hidden="true">
+  <svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+    <line x1="16" y1="9" x2="16" y2="5" stroke="var(--text-faint)" stroke-width="1.6"/>
+    <circle class="antenna" cx="16" cy="4" r="2" style="fill:var(--amber)"/>
+    <rect x="5" y="9" width="22" height="17" rx="4" style="fill:var(--surface-2);stroke:var(--border);stroke-width:1.4"/>
+    <line class="arm left" x1="5" y1="14" x2="1.5" y2="18" stroke="var(--border)" stroke-width="2" stroke-linecap="round"/>
+    <line class="arm right" x1="27" y1="14" x2="30.5" y2="18" stroke="var(--border)" stroke-width="2" stroke-linecap="round"/>
+    <circle class="eye" cx="11.5" cy="17" r="2.2" style="fill:var(--teal)"/>
+    <circle class="eye" cx="20.5" cy="17" r="2.2" style="fill:var(--teal)"/>
+    <rect x="10.5" y="22" width="11" height="1.8" rx="0.9" style="fill:var(--text-faint)"/>
+  </svg>
+</div>
+
+<div class="app">
+
+  <header>
+    <div class="eyebrow"><span class="dot"></span> Retrieval-augmented · index live</div>
+    <h1>
+      <svg class="bot-avatar lg" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <line x1="16" y1="9" x2="16" y2="5" stroke="var(--text-faint)" stroke-width="1.6"/>
+        <circle class="antenna" cx="16" cy="4" r="2" style="fill:var(--amber)"/>
+        <rect x="5" y="9" width="22" height="17" rx="4" style="fill:var(--surface-2);stroke:var(--border);stroke-width:1.4"/>
+        <line class="arm left" x1="5" y1="14" x2="1.5" y2="18" stroke="var(--border)" stroke-width="2" stroke-linecap="round"/>
+        <line class="arm right" x1="27" y1="14" x2="30.5" y2="18" stroke="var(--border)" stroke-width="2" stroke-linecap="round"/>
+        <circle class="eye" cx="11.5" cy="17" r="2.2" style="fill:var(--teal)"/>
+        <circle class="eye" cx="20.5" cy="17" r="2.2" style="fill:var(--teal)"/>
+        <rect x="10.5" y="22" width="11" height="1.8" rx="0.9" style="fill:var(--text-faint)"/>
+      </svg>
+      DevChatBot<span class="blink"></span>
+    </h1>
+    <p style="font-size: 19px; font-style: italic; color: var(--amber); font-family: 'Georgia', serif; letter-spacing: 0.04em; margin-top: 8px;">"the question of the answer never ending"</p>
+
+    <div class="meta-row" style="display: none;">
+      <div class="meta-item">model <b>gemini</b></div>
+      <div class="meta-item">embeddings <b>bge-small-en-v1.5</b></div>
+      <div class="meta-item">store <b>qdrant</b></div>
+      <div class="meta-item">top-k <b>5</b></div>
+      <button class="settings-toggle" id="settingsToggle" type="button">endpoint ▾</button>
+    </div>
+
+    <div class="settings-panel" id="settingsPanel">
+      <label for="apiBase">API BASE</label>
+      <input type="text" id="apiBase" placeholder="http://127.0.0.1:8000" value="">
+      <button id="apiBaseSave" type="button">Save</button>
+    </div>
+  </header>
+
+  <div class="chat" id="chat">
+    <div class="msg bot">
+      <span class="who"><svg class="bot-avatar sm" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <line x1="16" y1="9" x2="16" y2="5" stroke="var(--text-faint)" stroke-width="1.6"/>
+          <circle class="antenna" cx="16" cy="4" r="2" style="fill:var(--amber)"/>
+          <rect x="5" y="9" width="22" height="17" rx="4" style="fill:var(--surface-2);stroke:var(--border);stroke-width:1.4"/>
+          <circle class="eye" cx="11.5" cy="17" r="2.2" style="fill:var(--teal)"/>
+          <circle class="eye" cx="20.5" cy="17" r="2.2" style="fill:var(--teal)"/>
+          <rect x="10.5" y="22" width="11" height="1.8" rx="0.9" style="fill:var(--text-faint)"/>
+        </svg>devchatbot</span>
+      <div class="bubble">
+        <div class="welcome">
+          <b>Index ready.</b> I search a vector store of indexed documentation and forum threads, then answer using only what the search turns up — including the sources, so you can verify.
+          <div class="chips">
+            <span class="chip" data-q="How do I return a JSON response in FastAPI?">return JSON in FastAPI</span>
+            <span class="chip" data-q="How do I mount a volume in a Docker container?">mount a Docker volume</span>
+            <span class="chip" data-q="How do I parse a date string in Python?">parse a date string in Python</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="composer">
+    <div class="composer-inner">
+      <textarea id="input" rows="1" placeholder="Ask a question about FastAPI, Docker, or Python…"></textarea>
+      <button class="send-btn" id="sendBtn" type="button">Ask →</button>
+    </div>
+    <div class="composer-hint">Enter to send · Shift+Enter for a new line</div>
+  </div>
+
+</div>
+
+<script>
+  // ---------- wandering mascot ----------
+  const wanderBot = document.getElementById('wanderBot');
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let roamTimerId = null;
+
+  function scheduleRoam(delay){
+    if (roamTimerId) clearTimeout(roamTimerId);
+    roamTimerId = setTimeout(roam, delay);
+  }
+
+  function roam(){
+    if (!wanderBot) return;
+
+    const margin = 20;
+    const size = 90;
+    const maxX = Math.max(margin, window.innerWidth - size - margin);
+    const maxY = Math.max(margin, window.innerHeight - size - margin);
+
+    const currentX = parseFloat(wanderBot.style.left || '20');
+    const nextX = margin + Math.random() * (maxX - margin);
+    const nextY = margin + Math.random() * (maxY - margin);
+
+    wanderBot.classList.toggle('flip', nextX < currentX);
+    wanderBot.style.left = `${nextX}px`;
+    wanderBot.style.top = `${nextY}px`;
+
+    const nextDelay = 1000 + Math.random() * 1500; // 1s – 2.5s, very fast and active
+    scheduleRoam(nextDelay);
+  }
+
+  function reactToSend(){
+    if (!wanderBot || reduceMotion) return;
+
+    const rect = sendBtn.getBoundingClientRect();
+    const size = 90;
+    const targetX = Math.min(Math.max(rect.left - size - 12, 16), window.innerWidth - size - 16);
+    const targetY = Math.max(rect.top - size - 14, 16);
+
+    const currentX = parseFloat(wanderBot.style.left || '20');
+    wanderBot.classList.toggle('flip', targetX < currentX);
+    wanderBot.classList.add('excited');
+    wanderBot.style.left = `${targetX}px`;
+    wanderBot.style.top = `${targetY}px`;
+
+    if (roamTimerId) clearTimeout(roamTimerId);
+    setTimeout(() => {
+      wanderBot.classList.remove('excited');
+      scheduleRoam(1800 + Math.random() * 1500);
+    }, 2000);
+  }
+
+  if (wanderBot){
+    wanderBot.style.left = '20px';
+    wanderBot.style.top = `${window.innerHeight - 60}px`;
+    scheduleRoam(1000); // Always start the random roaming
+  }
+
+  marked.setOptions({ breaks: true, gfm: true });
+
+  const ROBOT_SVG = `<svg class="bot-avatar sm" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <line x1="16" y1="9" x2="16" y2="5" stroke="var(--text-faint)" stroke-width="1.6"/>
+    <circle class="antenna" cx="16" cy="4" r="2" style="fill:var(--amber)"/>
+    <rect x="5" y="9" width="22" height="17" rx="4" style="fill:var(--surface-2);stroke:var(--border);stroke-width:1.4"/>
+    <circle class="eye" cx="11.5" cy="17" r="2.2" style="fill:var(--teal)"/>
+    <circle class="eye" cx="20.5" cy="17" r="2.2" style="fill:var(--teal)"/>
+    <rect x="10.5" y="22" width="11" height="1.8" rx="0.9" style="fill:var(--text-faint)"/>
+  </svg>`;
+
+  let API_BASE = '';
+
+  const chat = document.getElementById('chat');
+  const input = document.getElementById('input');
+  const sendBtn = document.getElementById('sendBtn');
+  const settingsToggle = document.getElementById('settingsToggle');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const apiBaseInput = document.getElementById('apiBase');
+  const apiBaseSave = document.getElementById('apiBaseSave');
+
+  settingsToggle.addEventListener('click', () => {
+    settingsPanel.classList.toggle('open');
+  });
+  apiBaseSave.addEventListener('click', () => {
+    API_BASE = apiBaseInput.value.trim().replace(/\/$/, '');
+    settingsToggle.textContent = API_BASE ? 'endpoint: ' + API_BASE.replace(/^https?:\/\//,'') + ' ▾' : 'endpoint ▾';
+    settingsPanel.classList.remove('open');
+  });
+
+  // autosize textarea
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+  });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      send();
+    }
+  });
+  sendBtn.addEventListener('click', send);
+
+  document.querySelectorAll('.chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      input.value = chip.dataset.q;
+      input.dispatchEvent(new Event('input'));
+      send();
+    });
+  });
+
+  function scrollToBottom(){
+    chat.scrollTop = chat.scrollHeight;
+  }
+
+  function addUserMessage(text){
+    const msg = document.createElement('div');
+    msg.className = 'msg user';
+    msg.innerHTML = `
+      <span class="who">you</span>
+      <div class="bubble"></div>
+    `;
+    msg.querySelector('.bubble').textContent = text;
+    chat.appendChild(msg);
+    scrollToBottom();
+  }
+
+  function addTypingIndicator(){
+    const msg = document.createElement('div');
+    msg.className = 'msg bot';
+    msg.id = 'typingMsg';
+    msg.innerHTML = `
+      <span class="who">${ROBOT_SVG}devchatbot</span>
+      <div class="bubble">
+        <div class="typing"><span></span><span></span><span></span></div>
+      </div>
+    `;
+    chat.appendChild(msg);
+    scrollToBottom();
+  }
+
+  function removeTypingIndicator(){
+    const el = document.getElementById('typingMsg');
+    if (el) el.remove();
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function addBotMessage(answerMarkdown, sources){
+    const msg = document.createElement('div');
+    msg.className = 'msg bot';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.innerHTML = marked.parse(answerMarkdown || '_No answer returned._');
+
+    msg.innerHTML = `<span class="who">${ROBOT_SVG}devchatbot</span>`;
+    msg.appendChild(bubble);
+
+    if (sources && sources.length){
+      const receipt = document.createElement('div');
+      receipt.className = 'receipt';
+
+      const label = document.createElement('div');
+      label.className = 'receipt-label';
+      label.textContent = `sources · ${sources.length} match${sources.length > 1 ? 'es' : ''}`;
+      receipt.appendChild(label);
+
+      const cards = document.createElement('div');
+      cards.className = 'cards';
+
+      sources.forEach((s, i) => {
+        const score = typeof s.score === 'number' ? s.score : null;
+        const pct = score !== null ? Math.round(Math.max(0, Math.min(1, score)) * 100) : null;
+        const title = s.title || s.url || `Source ${i + 1}`;
+        const snippet = s.snippet || s.content || s.text || '';
+        const url = s.url || s.link || '#';
+
+        const card = document.createElement('a');
+        card.className = 'card';
+        card.href = url;
+        card.target = '_blank';
+        card.rel = 'noopener noreferrer';
+        card.innerHTML = `
+          <div class="card-index">№ ${String(i + 1).padStart(2, '0')}</div>
+          <div class="card-title">${escapeHtml(title)}</div>
+          ${snippet ? `<div class="card-snippet">${escapeHtml(snippet)}</div>` : ''}
+          ${pct !== null ? `
+            <div class="card-meter">
+              <div class="meter-track"><div class="meter-fill" style="width:${pct}%"></div></div>
+              <div class="meter-score">${pct}%</div>
+            </div>` : ''}
+        `;
+        cards.appendChild(card);
+      });
+
+      receipt.appendChild(cards);
+      msg.appendChild(receipt);
+    }
+
+    chat.appendChild(msg);
+    scrollToBottom();
+  }
+
+  function addErrorMessage(text){
+    const msg = document.createElement('div');
+    msg.className = 'msg bot';
+    msg.innerHTML = `
+      <span class="who">${ROBOT_SVG}devchatbot</span>
+      <div class="bubble error-bubble">
+        <div class="err-title">request failed</div>
+        ${escapeHtml(text)}
+      </div>
+    `;
+    chat.appendChild(msg);
+    scrollToBottom();
+  }
+
+  async function send(){
+    const question = input.value.trim();
+    if (!question) return;
+
+    reactToSend();
+    addUserMessage(question);
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    addTypingIndicator();
+
+    try{
+      const res = await fetch(`${API_BASE}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: question })
+      });
+
+      if (!res.ok){
+        throw new Error(`Server responded with ${res.status} ${res.statusText}`);
+      }
+
+      const data = await res.json();
+      removeTypingIndicator();
+
+      const answer = data.answer ?? data.response ?? data.text ?? '';
+      const sources = data.sources ?? data.context ?? data.results ?? [];
+      addBotMessage(answer, sources);
+
+    }catch(err){
+      removeTypingIndicator();
+      addErrorMessage(
+        `Couldn't reach the /ask endpoint (${err.message}). ` +
+        `Check that the FastAPI server is running and set the correct API base via "endpoint" above.`
+      );
+    }finally{
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+</script>
+</body>
+</html>
