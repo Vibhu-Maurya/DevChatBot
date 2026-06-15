@@ -2,6 +2,7 @@ services:
   - type: web
     name: devchatbot-api
     env: python
+    plan: free
     buildCommand: "pip install -r requirements.txt"
     startCommand: "cd search_service && uvicorn main:app --host 0.0.0.0 --port $PORT"
     envVars:
