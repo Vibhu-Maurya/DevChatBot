@@ -20,6 +20,8 @@ class Settings:
     HOST: str = os.getenv("HOST", "0.0.0.0")
 
     # Qdrant configuration
+    QDRANT_URL: str = os.getenv("QDRANT_URL", "")
+    QDRANT_API_KEY: str = os.getenv("QDRANT_API_KEY", "")
     QDRANT_HOST: str = os.getenv("QDRANT_HOST", "localhost")
     QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", 6333))
     QDRANT_PATH: str = os.getenv("QDRANT_PATH", "../crawler/qdrant_db")

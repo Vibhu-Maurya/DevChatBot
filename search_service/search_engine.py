@@ -40,9 +40,13 @@ except ImportError:
 # Initialize Qdrant Client
 print("Connecting to Qdrant Client...")
 try:
-    client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=5)
+    if settings.QDRANT_URL and settings.QDRANT_API_KEY:
+        client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=10)
+        print(f"Connected to Qdrant Cloud at {settings.QDRANT_URL}.")
+    else:
+        client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=5)
+        print(f"Connected to Qdrant server at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}.")
     client.get_collections()
-    print(f"Connected to Qdrant server at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}.")
 except Exception:
     # Resolve relative path for fallback db
     fallback_path = settings.QDRANT_PATH

@@ -48,18 +48,24 @@ def get_uuid_from_hash(hash_str):
     return str(uuid.uuid5(uuid.NAMESPACE_DNS, hash_str))
 
 def main():
-    # 1. Connect to Qdrant (try localhost:6333 first, fallback to path="qdrant_db")
+    import sys
+    sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "search_service"))
+    from config import settings
+
+    # 1. Connect to Qdrant
     print("Connecting to Qdrant...")
     try:
-        client = QdrantClient(host="localhost", port=6333, timeout=5)
-        # Quick health check
-        client.get_collections()
-        print("Connected to Qdrant server at localhost:6333.")
+        if settings.QDRANT_URL and settings.QDRANT_API_KEY:
+            client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=10)
+            client.get_collections()
+            print(f"Connected to Qdrant Cloud at {settings.QDRANT_URL}.")
+        else:
+            client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=5)
+            client.get_collections()
+            print(f"Connected to Qdrant server at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}.")
     except Exception as conn_err:
         print("\n" + "="*80)
-        print("WARNING: Could not connect to local Qdrant server at localhost:6333.")
-        print("To persist embeddings, make sure Qdrant is running in Docker:")
-        print("  docker run -p 6333:6333 qdrant/qdrant")
+        print("WARNING: Could not connect to remote or local Qdrant server.")
         print("Falling back to persistent local storage 'qdrant_db' for this execution.")
         print("="*80 + "\n")
         client = QdrantClient(path="qdrant_db")
