@@ -13,50 +13,61 @@ from config import settings
 MODEL_NAME = "BAAI/bge-small-en-v1.5"
 VECTOR_DIMENSION = 384
 
-print("Initializing embedding engine...")
-try:
-    from fastembed import TextEmbedding
-    class FastEmbedEngine:
-        def __init__(self, model_name=MODEL_NAME):
-            self.model = TextEmbedding(model_name=model_name)
-        def embed_query(self, text: str) -> List[float]:
-            return next(self.model.embed([text])).tolist()
-    engine = FastEmbedEngine()
-    print("Embedding engine initialized using FastEmbed.")
-except ImportError:
-    try:
-        from sentence_transformers import SentenceTransformer
-        class STEngine:
-            def __init__(self, model_name=MODEL_NAME):
-                self.model = SentenceTransformer(model_name)
-            def embed_query(self, text: str) -> List[float]:
-                return self.model.encode([text])[0].tolist()
-        engine = STEngine()
-        print("Embedding engine initialized using SentenceTransformers.")
-    except Exception as e:
-        print(f"Error: Failed to initialize any embedding engine: {e}")
-        raise e
+engine = None
 
-# Initialize Qdrant Client
-print("Connecting to Qdrant Client...")
-try:
-    if settings.QDRANT_URL and settings.QDRANT_API_KEY:
-        client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=10)
-        print(f"Connected to Qdrant Cloud at {settings.QDRANT_URL}.")
-    else:
-        client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=5)
-        print(f"Connected to Qdrant server at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}.")
-    client.get_collections()
-except Exception:
-    # Resolve relative path for fallback db
-    fallback_path = settings.QDRANT_PATH
-    if not os.path.isabs(fallback_path):
-        # Resolve relative to this file
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        fallback_path = os.path.normpath(os.path.join(current_dir, fallback_path))
-    
-    print(f"Could not connect to Qdrant server. Falling back to local storage path: '{fallback_path}'.")
-    client = QdrantClient(path=fallback_path)
+def get_engine():
+    global engine
+    if engine is None:
+        print("Initializing embedding engine dynamically...")
+        try:
+            from fastembed import TextEmbedding
+            class FastEmbedEngine:
+                def __init__(self, model_name=MODEL_NAME):
+                    self.model = TextEmbedding(model_name=model_name)
+                def embed_query(self, text: str) -> List[float]:
+                    return next(self.model.embed([text])).tolist()
+            engine = FastEmbedEngine()
+            print("Embedding engine initialized using FastEmbed.")
+        except ImportError:
+            try:
+                from sentence_transformers import SentenceTransformer
+                class STEngine:
+                    def __init__(self, model_name=MODEL_NAME):
+                        self.model = SentenceTransformer(model_name)
+                    def embed_query(self, text: str) -> List[float]:
+                        return self.model.encode([text])[0].tolist()
+                engine = STEngine()
+                print("Embedding engine initialized using SentenceTransformers.")
+            except Exception as e:
+                print(f"Error: Failed to initialize any embedding engine: {e}")
+                raise e
+    return engine
+
+client = None
+
+def get_client():
+    global client
+    if client is None:
+        print("Connecting to Qdrant Client dynamically...")
+        try:
+            if settings.QDRANT_URL and settings.QDRANT_API_KEY:
+                client = QdrantClient(url=settings.QDRANT_URL, api_key=settings.QDRANT_API_KEY, timeout=10)
+                print(f"Connected to Qdrant Cloud at {settings.QDRANT_URL}.")
+            else:
+                client = QdrantClient(host=settings.QDRANT_HOST, port=settings.QDRANT_PORT, timeout=5)
+                print(f"Connected to Qdrant server at {settings.QDRANT_HOST}:{settings.QDRANT_PORT}.")
+            client.get_collections()
+        except Exception:
+            # Resolve relative path for fallback db
+            fallback_path = settings.QDRANT_PATH
+            if not os.path.isabs(fallback_path):
+                # Resolve relative to this file
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                fallback_path = os.path.normpath(os.path.join(current_dir, fallback_path))
+            
+            print(f"Could not connect to Qdrant server. Falling back to local storage path: '{fallback_path}'.")
+            client = QdrantClient(path=fallback_path)
+    return client
 
 def search_docs(
     query_str: str, 
@@ -67,7 +78,8 @@ def search_docs(
     t0 = time.time()
     
     # 1. Embed query
-    query_vector = engine.embed_query(query_str)
+    current_engine = get_engine()
+    query_vector = current_engine.embed_query(query_str)
     t_embed = (time.time() - t0) * 1000
     
     # 2. Setup filtering if provided
@@ -85,15 +97,16 @@ def search_docs(
     # 3. Query Qdrant
     t1 = time.time()
     try:
+        current_client = get_client()
         # Resolve vector name if fastembed is active in the client
         try:
-            vector_params = client.get_fastembed_vector_params()
+            vector_params = current_client.get_fastembed_vector_params()
             vector_name = list(vector_params.keys())[0]
         except Exception:
             vector_name = None
 
         if vector_name:
-            search_response = client.query_points(
+            search_response = current_client.query_points(
                 collection_name=settings.COLLECTION_NAME,
                 query=query_vector,
                 using=vector_name,
@@ -101,7 +114,7 @@ def search_docs(
                 limit=top_k
             )
         else:
-            search_response = client.query_points(
+            search_response = current_client.query_points(
                 collection_name=settings.COLLECTION_NAME,
                 query=query_vector,
                 query_filter=query_filter,
