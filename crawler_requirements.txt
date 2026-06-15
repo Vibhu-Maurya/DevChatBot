@@ -1,16 +1,17 @@
-# Web Framework
-fastapi
-uvicorn
-python-multipart
-python-dotenv
-pydantic
-httpx
-
-# Database & Embeddings
+scrapy
+scrapy-playwright
+trafilatura
+playwright
+tiktoken
 qdrant-client
 fastembed
-
-# LLM Frameworks & Tools
+sentence-transformers
+python-dotenv
+python-multipart
+fastapi
+uvicorn
+pydantic
+httpx
 langchain
 langchain-core
 langchain-google-genai
@@ -18,4 +19,3 @@ langchain-groq
 langchain-community
 langchain-experimental
 tavily-python
-tiktoken
